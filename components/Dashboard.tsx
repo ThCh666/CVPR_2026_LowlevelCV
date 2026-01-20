@@ -3,26 +3,30 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Legend
 } from 'recharts';
-import { UserSubmission, GeminiAnalysis } from '../types';
-import { INITIAL_MOCK_DATA, AVERAGE_BINS, RAW_SCORE_TEMPLATE } from '../constants';
+import { UserSubmission, GeminiAnalysis, GlobalStats } from '../types';
+import { AVERAGE_BINS, RAW_SCORE_TEMPLATE } from '../constants';
 import { analyzeScores } from '../services/geminiService';
 
 interface DashboardProps {
   userData: UserSubmission;
+  globalStats: GlobalStats;
   onReset: () => void;
 }
 
 // Updated colors for dark theme: bright neon-ish colors
 const COLORS = ['#ef4444', '#f97316', '#fbbf24', '#a3e635', '#4ade80', '#22d3ee']; // Red -> Orange -> Yellow -> Lime -> Green -> Cyan
 
-const Dashboard: React.FC<DashboardProps> = ({ userData, onReset }) => {
+const Dashboard: React.FC<DashboardProps> = ({ userData, globalStats, onReset }) => {
   const [analysis, setAnalysis] = useState<GeminiAnalysis | null>(null);
   const [loadingAnalysis, setLoadingAnalysis] = useState(true);
 
-  // Combine Mock Data with User Data for "Live" Stats
+  // Process Real Data for Charts
   const stats = useMemo(() => {
-    // 1. Process Average Distribution
-    const allAverages = [...INITIAL_MOCK_DATA.averages, userData.average];
+    // 1. Process Average Distribution using Global Stats
+    // 注意：globalStats 此时已经包含了当前用户的提交（如果是刚提交完），
+    // 或者包含了所有历史数据。我们直接使用 globalStats.allAverages 进行统计即可。
+    const allAverages = globalStats.allAverages;
+    
     const avgBins = AVERAGE_BINS.map(bin => ({ ...bin, count: 0 }));
     
     allAverages.forEach(avg => {
@@ -30,8 +34,8 @@ const Dashboard: React.FC<DashboardProps> = ({ userData, onReset }) => {
       if (bin) bin.count++;
     });
 
-    // 2. Process Pie Chart (Raw Scores)
-    const allRawScores = [...INITIAL_MOCK_DATA.rawScores, ...userData.scores];
+    // 2. Process Pie Chart (Raw Scores) using Global Stats
+    const allRawScores = globalStats.allRawScores;
     const pieData = RAW_SCORE_TEMPLATE.map(t => ({ ...t, count: 0 }));
     
     allRawScores.forEach(score => {
@@ -40,7 +44,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userData, onReset }) => {
     });
 
     return { avgBins, pieData };
-  }, [userData]);
+  }, [userData, globalStats]); // 依赖 globalStats 更新
 
   useEffect(() => {
     const fetchAnalysis = async () => {
@@ -147,7 +151,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userData, onReset }) => {
             </ResponsiveContainer>
           </div>
           <p className="text-center text-xs text-purple-300/50 mt-2">
-            基于 {INITIAL_MOCK_DATA.averages.length + 1} 份提交数据的对比。紫色高亮柱状图代表您的区间。
+            基于 {globalStats.totalSubmissions} 份提交数据的对比。紫色高亮柱状图代表您的区间。
           </p>
         </div>
 

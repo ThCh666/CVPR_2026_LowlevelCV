@@ -1,18 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ScoreForm from './components/ScoreForm';
 import Dashboard from './components/Dashboard';
-import { UserSubmission } from './types';
+import { UserSubmission, GlobalStats } from './types';
+import { apiService } from './services/api';
+import { INITIAL_MOCK_DATA } from './constants';
 
 const App: React.FC = () => {
   const [userData, setUserData] = useState<UserSubmission | null>(null);
+  // 初始化全局数据，默认使用 Mock 数据防止空白，等 API 加载完成后替换
+  const [globalStats, setGlobalStats] = useState<GlobalStats>({
+    totalSubmissions: INITIAL_MOCK_DATA.averages.length,
+    allAverages: INITIAL_MOCK_DATA.averages,
+    allRawScores: INITIAL_MOCK_DATA.rawScores
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (data: UserSubmission) => {
-    setUserData(data);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  // 组件加载时：获取当前最新的统计数据
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const stats = await apiService.fetchStats();
+        setGlobalStats(stats);
+      } catch (error) {
+        console.error("Failed to load initial stats:", error);
+      }
+    };
+    loadStats();
+  }, []);
+
+  const handleSubmit = async (data: UserSubmission) => {
+    setIsSubmitting(true);
+    try {
+      // 1. 提交数据到 Google Sheets
+      // API 返回的是包含最新这一单数据的全新统计结果
+      const updatedStats = await apiService.submitScore(data);
+      
+      // 2. 更新全局统计状态
+      setGlobalStats(updatedStats);
+      
+      // 3. 进入 Dashboard 视图
+      setUserData(data);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      console.error("Submission error:", error);
+      alert("提交失败，请检查网络。将使用本地模式显示。");
+      
+      // 降级处理：如果在本地或者 API 挂了，手动在前端合并数据以便展示
+      setGlobalStats(prev => ({
+        totalSubmissions: prev.totalSubmissions + 1,
+        allAverages: [...prev.allAverages, data.average],
+        allRawScores: [...prev.allRawScores, ...data.scores]
+      }));
+      setUserData(data);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReset = () => {
     setUserData(null);
+    // 重置时也可以选择重新拉取一次最新数据
+    apiService.fetchStats().then(setGlobalStats).catch(() => {});
   };
 
   return (
@@ -51,11 +99,18 @@ const App: React.FC = () => {
               <p className="text-lg text-purple-200/80">
                 输入您的 CVPR 2026 分数 (1-6)，看看您在底层视觉社区中的排名
               </p>
+              <p className="text-sm text-purple-400/50 mt-2">
+                当前已统计 {globalStats.totalSubmissions} 份数据
+              </p>
             </div>
-            <ScoreForm onSubmit={handleSubmit} />
+            <ScoreForm onSubmit={handleSubmit} isLoading={isSubmitting} />
           </div>
         ) : (
-          <Dashboard userData={userData} onReset={handleReset} />
+          <Dashboard 
+            userData={userData} 
+            globalStats={globalStats} 
+            onReset={handleReset} 
+          />
         )}
       </main>
       

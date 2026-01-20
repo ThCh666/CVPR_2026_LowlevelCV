@@ -3,9 +3,10 @@ import { UserSubmission } from '../types';
 
 interface ScoreFormProps {
   onSubmit: (submission: UserSubmission) => void;
+  isLoading?: boolean;
 }
 
-const ScoreForm: React.FC<ScoreFormProps> = ({ onSubmit }) => {
+const ScoreForm: React.FC<ScoreFormProps> = ({ onSubmit, isLoading = false }) => {
   const [scores, setScores] = useState<(string)[]>(['', '', '']); // Start with 3 empty scores
   const [error, setError] = useState<string | null>(null);
 
@@ -89,6 +90,7 @@ const ScoreForm: React.FC<ScoreFormProps> = ({ onSubmit }) => {
                   className="w-full p-3 bg-[#0b0a1f] border border-purple-500/30 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all text-center text-lg font-mono font-bold text-white placeholder-purple-800/50"
                   placeholder="1-6"
                   required
+                  disabled={isLoading}
                 />
               </div>
             ))}
@@ -99,6 +101,7 @@ const ScoreForm: React.FC<ScoreFormProps> = ({ onSubmit }) => {
               type="button"
               onClick={toggleReviewerCount}
               className="text-sm text-purple-400 hover:text-purple-300 font-medium underline decoration-dotted underline-offset-4 transition-colors"
+              disabled={isLoading}
             >
               {scores.length === 3 ? "+ 添加第4位审稿人" : "- 移除第4位审稿人"}
             </button>
@@ -112,9 +115,15 @@ const ScoreForm: React.FC<ScoreFormProps> = ({ onSubmit }) => {
 
           <button
             type="submit"
-            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(124,58,237,0.3)] transform transition hover:scale-[1.02] active:scale-[0.98] border border-white/10"
+            disabled={isLoading}
+            className={`w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(124,58,237,0.3)] transform transition border border-white/10 ${isLoading ? 'opacity-70 cursor-not-allowed' : 'hover:from-purple-500 hover:to-indigo-500 hover:scale-[1.02] active:scale-[0.98]'}`}
           >
-            开始统计
+            {isLoading ? (
+              <div className="flex items-center justify-center space-x-2">
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                <span>处理中...</span>
+              </div>
+            ) : "开始统计"}
           </button>
         </div>
       </form>
